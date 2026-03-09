@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Tic Tac Toe Quiz</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#0E1D2E;
+color:white;
+text-align:center;
+margin:0;
+}
+
+h1{color:#FF6400;}
+
+.screen{display:none;padding:20px;}
+.active{display:block;}
+
+button{
+background:#FF6400;
+border:none;
+padding:12px 18px;
+font-size:18px;
+border-radius:8px;
+cursor:pointer;
+margin:10px;
+color:white;
+}
+
+input{padding:10px;font-size:18px;margin:5px;}
+
+.games{
+display:flex;
+justify-content:center;
+gap:60px;
+flex-wrap:wrap;
+}
+
+.board{
+display:grid;
+grid-template-columns:repeat(3,110px);
+gap:10px;
+}
+
+.cell{
+width:110px;
+height:110px;
+background:white;
+color:#0E1D2E;
+font-size:50px;
+display:flex;
+align-items:center;
+justify-content:center;
+border-radius:10px;
+cursor:pointer;
+}
+
+.timer{
+font-size:40px;
+color:#FF6400;
+}
+
+#winner{
+font-size:50px;
+color:#FF6400;
+animation:pulse 1s infinite;
+}
+
+@keyframes pulse{
+0%{transform:scale(1)}
+50%{transform:scale(1.2)}
+100%{transform:scale(1)}
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="setup" class="screen active">
+
+<h1>Tic Tac Toe Quiz</h1>
+
+<p>Upload CSV file</p>
+<input type="file" id="csvFile">
+
+<h3>Game 1</h3>
+<input id="t1" placeholder="Team A">
+<input id="t2" placeholder="Team B">
+
+<h3>Game 2</h3>
+<input id="t3" placeholder="Team C">
+<input id="t4" placeholder="Team D">
+
+<br><br>
+
+<button onclick="startGame()">START GAME</button>
+
+</div>
+
+<div id="game" class="screen">
+
+<h1 id="turn"></h1>
+
+<button onclick="showQuestion()">Show Question</button>
+
+<div class="games">
+
+<div>
+<h2 id="g1"></h2>
+<div id="board0" class="board"></div>
+</div>
+
+<div>
+<h2 id="g2"></h2>
+<div id="board1" class="board"></div>
+</div>
+
+</div>
+
+</div>
+
+<div id="questionScreen" class="screen">
+
+<h1 id="questionText"></h1>
+
+<div class="timer" id="timer">45</div>
+
+<input id="answerInput" placeholder="Type answer">
+
+<br><br>
+
+<button onclick="submitAnswer()">Submit</button>
+
+<h2 id="feedback"></h2>
+
+<button id="playBtn" onclick="returnGame()" style="display:none">
+Play Move
+</button>
+
+</div>
+
+<script>
+
+let questions=[]
+let used=[]
+
+let teams=[]
+let turn=0
+let canPlay=false
+
+let boards=[
+["","","","","","","","",""],
+["","","","","","","","",""]
+]
+
+let currentQuestion
+let currentBoard=0
+
+let timer
+let time=45
+
+function parseCSV(text){
+
+let rows=text.split("\n")
+
+rows.slice(1).forEach(r=>{
+
+let parts=r.split(",")
+
+if(parts.length>=2){
+
+questions.push({
+q:parts[0],
+a:parts[1].trim().toLowerCase()
+})
+
+}
+
+})
+
+}
+
+function startGame(){
+
+let file=document.getElementById("csvFile").files[0]
+
+if(!file){
+alert("Upload CSV first")
+return
+}
+
+let reader=new FileReader()
+
+reader.onload=function(e){
+
+parseCSV(e.target.result)
+
+teams=[
+document.getElementById("t1").value,
+document.getElementById("t2").value,
+document.getElementById("t3").value,
+document.getElementById("t4").value
+]
+
+document.getElementById("g1").innerText=teams[0]+" vs "+teams[1]
+document.getElementById("g2").innerText=teams[2]+" vs "+teams[3]
+
+createBoard(0)
+createBoard(1)
+
+updateTurn()
+
+switchScreen("game")
+
+}
+
+reader.readAsText(file)
+
+}
+
+function createBoard(i){
+
+let board=document.getElementById("board"+i)
+
+for(let c=0;c<9;c++){
+
+let cell=document.createElement("div")
+cell.className="cell"
+
+cell.onclick=()=>playMove(i,c,cell)
+
+board.appendChild(cell)
+
+}
+
+}
+
+function updateTurn(){
+
+let team=teams[turn%4]
+
+currentBoard=turn%4<2?0:1
+
+document.getElementById("turn").innerText=
+team+" turn (Game "+(currentBoard+1)+")"
+
+}
+
+function showQuestion(){
+
+let available=questions.filter(q=>!used.includes(q))
+
+if(available.length==0) used=[]
+
+currentQuestion=available[Math.floor(Math.random()*available.length)]
+
+used.push(currentQuestion)
+
+document.getElementById("questionText").innerText=currentQuestion.q
+
+document.getElementById("answerInput").value=""
+
+document.getElementById("feedback").innerText=""
+
+document.getElementById("playBtn").style.display="none"
+
+switchScreen("questionScreen")
+
+startTimer()
+
+}
+
+function startTimer(){
+
+time=45
+document.getElementById("timer").innerText=time
+
+timer=setInterval(()=>{
+
+time--
+
+document.getElementById("timer").innerText=time
+
+if(time==0) submitAnswer()
+
+},1000)
+
+}
+
+function submitAnswer(){
+
+clearInterval(timer)
+
+let ans=document.getElementById("answerInput").value
+.toLowerCase().trim()
+
+if(ans==currentQuestion.a){
+
+document.getElementById("feedback").innerText=
+"Correct! "+currentQuestion.a
+
+canPlay=true
+
+document.getElementById("playBtn").style.display="inline-block"
+
+}else{
+
+document.getElementById("feedback").innerText=
+"Wrong! Correct: "+currentQuestion.a
+
+turn++
+
+setTimeout(()=>{
+switchScreen("game")
+updateTurn()
+},2500)
+
+}
+
+}
+
+document.getElementById("answerInput")
+.addEventListener("keypress",function(e){
+
+if(e.key==="Enter") submitAnswer()
+
+})
+
+function returnGame(){
+
+switchScreen("game")
+
+}
+
+function playMove(boardIndex,cellIndex,cell){
+
+if(!canPlay) return
+if(cell.innerText!="") return
+
+let mark=turn%2==0?"X":"O"
+
+cell.innerText=mark
+
+boards[boardIndex][cellIndex]=mark
+
+checkWin(boardIndex)
+
+canPlay=false
+
+turn++
+
+updateTurn()
+
+}
+
+function checkWin(bi){
+
+let b=boards[bi]
+
+let wins=[
+[0,1,2],[3,4,5],[6,7,8],
+[0,3,6],[1,4,7],[2,5,8],
+[0,4,8],[2,4,6]
+]
+
+for(let w of wins){
+
+if(b[w[0]] && b[w[0]]==b[w[1]] && b[w[1]]==b[w[2]]){
+
+showWinner(bi,b[w[0]])
+
+}
+
+}
+
+}
+
+function showWinner(board,mark){
+
+let team
+
+if(board==0){
+team= mark=="X"?teams[0]:teams[1]
+}else{
+team= mark=="X"?teams[2]:teams[3]
+}
+
+document.getElementById("game").innerHTML=
+"<div id='winner'>"+team+" WINS!</div>"
+
+}
+
+function switchScreen(id){
+
+document.querySelectorAll(".screen")
+.forEach(s=>s.classList.remove("active"))
+
+document.getElementById(id)
+.classList.add("active")
+
+}
+
+</script>
+
+</body>
+</html>
