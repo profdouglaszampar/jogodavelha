@@ -32,7 +32,7 @@ margin:10px;
 color:white;
 }
 
-input{padding:10px;font-size:18px;margin:5px;}
+input{padding:10px;font-size:18px;margin:5px}
 
 .games{
 display:flex;
@@ -43,13 +43,13 @@ flex-wrap:wrap;
 
 .board{
 display:grid;
-grid-template-columns:repeat(3,110px);
+grid-template-columns:repeat(3,120px);
 gap:10px;
 }
 
 .cell{
-width:110px;
-height:110px;
+width:120px;
+height:120px;
 background:white;
 color:#0E1D2E;
 font-size:50px;
@@ -60,9 +60,25 @@ border-radius:10px;
 cursor:pointer;
 }
 
+.selected{
+background:#FF6400;
+color:white;
+}
+
 .timer{
-font-size:40px;
-color:#FF6400;
+height:20px;
+background:#444;
+width:300px;
+margin:auto;
+border-radius:10px;
+overflow:hidden;
+}
+
+.bar{
+height:100%;
+background:#FF6400;
+width:100%;
+transition:width 1s linear;
 }
 
 #winner{
@@ -86,8 +102,8 @@ animation:pulse 1s infinite;
 
 <h1>Tic Tac Toe Quiz</h1>
 
-<p>Upload CSV file</p>
-<input type="file" id="csvFile">
+<p>Upload CSV</p>
+<input type="file" id="csv">
 
 <h3>Game 1</h3>
 <input id="t1" placeholder="Team A">
@@ -98,16 +114,16 @@ animation:pulse 1s infinite;
 <input id="t4" placeholder="Team D">
 
 <br><br>
-
-<button onclick="startGame()">START GAME</button>
+<button onclick="startGame()">START</button>
 
 </div>
+
 
 <div id="game" class="screen">
 
 <h1 id="turn"></h1>
 
-<button onclick="showQuestion()">Show Question</button>
+<p>Select a square</p>
 
 <div class="games">
 
@@ -125,25 +141,29 @@ animation:pulse 1s infinite;
 
 </div>
 
+
 <div id="questionScreen" class="screen">
 
-<h1 id="questionText"></h1>
+<h1 id="question"></h1>
 
-<div class="timer" id="timer">45</div>
+<div class="timer">
+<div class="bar" id="bar"></div>
+</div>
 
-<input id="answerInput" placeholder="Type answer">
+<br>
+
+<input id="answer" placeholder="Type answer">
 
 <br><br>
 
-<button onclick="submitAnswer()">Submit</button>
+<button onclick="checkAnswer()">Submit</button>
 
 <h2 id="feedback"></h2>
 
-<button id="playBtn" onclick="returnGame()" style="display:none">
-Play Move
-</button>
+<button id="playBtn" style="display:none" onclick="confirmMove()">Play Move</button>
 
 </div>
+
 
 <script>
 
@@ -152,18 +172,18 @@ let used=[]
 
 let teams=[]
 let turn=0
-let canPlay=false
 
 let boards=[
 ["","","","","","","","",""],
 ["","","","","","","","",""]
 ]
 
+let selectedCell=null
+let selectedBoard=null
 let currentQuestion
-let currentBoard=0
 
-let timer
 let time=45
+let timer
 
 function parseCSV(text){
 
@@ -188,12 +208,7 @@ a:parts[1].trim().toLowerCase()
 
 function startGame(){
 
-let file=document.getElementById("csvFile").files[0]
-
-if(!file){
-alert("Upload CSV first")
-return
-}
+let file=document.getElementById("csv").files[0]
 
 let reader=new FileReader()
 
@@ -202,14 +217,14 @@ reader.onload=function(e){
 parseCSV(e.target.result)
 
 teams=[
-document.getElementById("t1").value,
-document.getElementById("t2").value,
-document.getElementById("t3").value,
-document.getElementById("t4").value
+t1.value,
+t2.value,
+t3.value,
+t4.value
 ]
 
-document.getElementById("g1").innerText=teams[0]+" vs "+teams[1]
-document.getElementById("g2").innerText=teams[2]+" vs "+teams[3]
+g1.innerText=teams[0]+" vs "+teams[1]
+g2.innerText=teams[2]+" vs "+teams[3]
 
 createBoard(0)
 createBoard(1)
@@ -233,7 +248,7 @@ for(let c=0;c<9;c++){
 let cell=document.createElement("div")
 cell.className="cell"
 
-cell.onclick=()=>playMove(i,c,cell)
+cell.onclick=()=>selectCell(i,c,cell)
 
 board.appendChild(cell)
 
@@ -245,10 +260,25 @@ function updateTurn(){
 
 let team=teams[turn%4]
 
-currentBoard=turn%4<2?0:1
+let game=turn%4<2?1:2
 
-document.getElementById("turn").innerText=
-team+" turn (Game "+(currentBoard+1)+")"
+turnText=team+" turn (Game "+game+")"
+
+document.getElementById("turn").innerText=turnText
+
+}
+
+function selectCell(board,index,cell){
+
+if(board!=(turn%4<2?0:1)) return
+
+if(cell.innerText!="") return
+
+selectedCell=cell
+selectedBoard=board
+selectedIndex=index
+
+showQuestion()
 
 }
 
@@ -262,13 +292,13 @@ currentQuestion=available[Math.floor(Math.random()*available.length)]
 
 used.push(currentQuestion)
 
-document.getElementById("questionText").innerText=currentQuestion.q
+question.innerText=currentQuestion.q
 
-document.getElementById("answerInput").value=""
+answer.value=""
 
-document.getElementById("feedback").innerText=""
+feedback.innerText=""
 
-document.getElementById("playBtn").style.display="none"
+playBtn.style.display="none"
 
 switchScreen("questionScreen")
 
@@ -279,89 +309,69 @@ startTimer()
 function startTimer(){
 
 time=45
-document.getElementById("timer").innerText=time
+
+bar.style.width="100%"
 
 timer=setInterval(()=>{
 
 time--
 
-document.getElementById("timer").innerText=time
+bar.style.width=(time/45*100)+"%"
 
-if(time==0) submitAnswer()
+if(time<=0) checkAnswer()
 
 },1000)
 
 }
 
-function submitAnswer(){
+function checkAnswer(){
 
 clearInterval(timer)
 
-let ans=document.getElementById("answerInput").value
-.toLowerCase().trim()
+let ans=answer.value.toLowerCase().trim()
 
 if(ans==currentQuestion.a){
 
-document.getElementById("feedback").innerText=
-"Correct! "+currentQuestion.a
+feedback.innerText="Correct!"
 
-canPlay=true
-
-document.getElementById("playBtn").style.display="inline-block"
+playBtn.style.display="inline-block"
 
 }else{
 
-document.getElementById("feedback").innerText=
-"Wrong! Correct: "+currentQuestion.a
+feedback.innerText="Wrong! Answer: "+currentQuestion.a
 
 turn++
 
 setTimeout(()=>{
 switchScreen("game")
 updateTurn()
-},2500)
+},2000)
 
 }
 
 }
 
-document.getElementById("answerInput")
-.addEventListener("keypress",function(e){
-
-if(e.key==="Enter") submitAnswer()
-
-})
-
-function returnGame(){
-
-switchScreen("game")
-
-}
-
-function playMove(boardIndex,cellIndex,cell){
-
-if(!canPlay) return
-if(cell.innerText!="") return
+function confirmMove(){
 
 let mark=turn%2==0?"X":"O"
 
-cell.innerText=mark
+selectedCell.innerText=mark
 
-boards[boardIndex][cellIndex]=mark
+boards[selectedBoard][selectedIndex]=mark
 
-checkWin(boardIndex)
-
-canPlay=false
+checkWin(selectedBoard)
 
 turn++
+
+switchScreen("game")
 
 updateTurn()
 
 }
 
-function checkWin(bi){
+function checkWin(b){
 
-let b=boards[bi]
+let board=boards[b]
 
 let wins=[
 [0,1,2],[3,4,5],[6,7,8],
@@ -371,38 +381,41 @@ let wins=[
 
 for(let w of wins){
 
-if(b[w[0]] && b[w[0]]==b[w[1]] && b[w[1]]==b[w[2]]){
+if(board[w[0]] &&
+board[w[0]]==board[w[1]] &&
+board[w[1]]==board[w[2]]){
 
-showWinner(bi,b[w[0]])
+showWinner(b,board[w[0]])
+
+}
 
 }
 
 }
 
-}
-
-function showWinner(board,mark){
+function showWinner(b,mark){
 
 let team
 
-if(board==0){
-team= mark=="X"?teams[0]:teams[1]
-}else{
-team= mark=="X"?teams[2]:teams[3]
-}
+if(b==0)
+team=mark=="X"?teams[0]:teams[1]
+else
+team=mark=="X"?teams[2]:teams[3]
 
-document.getElementById("game").innerHTML=
-"<div id='winner'>"+team+" WINS!</div>"
+document.body.innerHTML="<div id='winner'>"+team+" WINS!</div>"
 
 }
+
+answer.addEventListener("keypress",function(e){
+if(e.key==="Enter") checkAnswer()
+})
 
 function switchScreen(id){
 
 document.querySelectorAll(".screen")
 .forEach(s=>s.classList.remove("active"))
 
-document.getElementById(id)
-.classList.add("active")
+document.getElementById(id).classList.add("active")
 
 }
 
